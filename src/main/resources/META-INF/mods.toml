@@ -1,0 +1,22 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="GNU GPL 3"
+
+[[mods]]
+modId="neuropricel"
+version="1.0.0"
+displayName="NeuroPricel"
+displayURL=""
+credits="NKSP NeuroPricel"
+authors="TemanSv1n"
+
+[[dependencies.neuropricel]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1]"
+    ordering="NONE"
+    side="BOTH"
+
+
+
+

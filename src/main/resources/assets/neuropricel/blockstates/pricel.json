@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "neuropricel:block/pricel",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "neuropricel:block/pricel"
+    },
+    "facing=south": {
+      "model": "neuropricel:block/pricel",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "neuropricel:block/pricel",
+      "y": 270
+    }
+  }
+}

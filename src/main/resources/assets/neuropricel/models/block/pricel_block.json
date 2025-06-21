@@ -1,0 +1,13 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "down": "neuropricel:block/blank_black",
+    "up": "neuropricel:block/blank_black",
+    "north": "neuropricel:block/pricel_16",
+    "east": "neuropricel:block/blank_black",
+    "south": "neuropricel:block/blank_black",
+    "west": "neuropricel:block/blank_black",
+    "particle": "neuropricel:block/blank_black"
+  },
+  "render_type": "solid"
+}
