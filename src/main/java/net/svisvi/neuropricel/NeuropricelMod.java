@@ -13,8 +13,12 @@
  */
 package net.svisvi.neuropricel;
 
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.svisvi.neuropricel.init.ModBlockEntities;
 import net.svisvi.neuropricel.init.ModBlocks;
 import net.svisvi.neuropricel.init.ModItems;
@@ -56,9 +60,12 @@ public class NeuropricelMod {
 		ModBlocks.REGISTRY.register(bus);
 		ModBlockEntities.REGISTRY.register(bus);
 		ModItems.REGISTRY.register(bus);
+
+
 		//ModTabs.
 
 		ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ModServerConfigs.SPEC, "neuropricel-server.toml");
+
 
 	}
 
@@ -88,6 +95,17 @@ public class NeuropricelMod {
 			});
 			actions.forEach(e -> e.getKey().run());
 			workQueue.removeAll(actions);
+		}
+	}
+
+	@Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+	public static class ClientModEvents {
+		/**
+		 * @param event
+		 */
+		@SubscribeEvent
+		public static void onClientSetup(FMLClientSetupEvent event) {
+			ItemBlockRenderTypes.setRenderLayer(ModBlocks.PRICEL.get(), RenderType.cutout());
 		}
 	}
 }

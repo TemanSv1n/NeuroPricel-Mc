@@ -51,6 +51,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.network.PacketDistributor;
 import net.svisvi.neuropricel.block.entity.PricelBlockEntity;
 import net.svisvi.neuropricel.init.ModBlockEntities;
+import net.svisvi.neuropricel.misc.LLMRequestSender;
 import net.svisvi.neuropricel.misc.RequestSender;
 
 public class PricelBlock extends BaseEntityBlock {
@@ -67,62 +68,54 @@ public class PricelBlock extends BaseEntityBlock {
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
-        } else {
-            if (!getProcessing(state)) {
-                ItemStack stack = player.getItemInHand(interactionHand);
-                //
-                if (stack.getItem() == Items.WRITABLE_BOOK || stack.getItem() == Items.WRITTEN_BOOK) {
-                    //getting text from book
-                    String content = fetchTextFromBook(stack);
-                    if (content != null) {
-                        BlockEntity blockEntity = level.getBlockEntity(pos);
-                        if (blockEntity instanceof PricelBlockEntity pbe) {
-                            pbe.setUrl(null);
-                            pbe.setStarterPlayer(null);
-                        }
-                        //getting text answer from server
+        }
+
+        if (!getProcessing(state)) {
+            ItemStack stack = player.getItemInHand(interactionHand);
+            if (stack.getItem() == Items.WRITABLE_BOOK || stack.getItem() == Items.WRITTEN_BOOK) {
+                String content = fetchTextFromBook(stack);
+                if (content != null) {
+                    BlockEntity blockEntity = level.getBlockEntity(pos);
+                    if (blockEntity instanceof PricelBlockEntity pbe) {
+                        pbe.setUrl(null);
+                        pbe.setStarterPlayer(null);
+
                         setProcessing(level, pos, state, true);
-                        String response = getAiResponse(content);
-                        //getting audio url from server
-                        if (response != null) {
-                            //String url_response = null;//RequestSender.TTSClientGson.generateTTS(response);
 
-                            if (blockEntity instanceof PricelBlockEntity pbe) {
-                                pbe.setStarterPlayer(player);
-
-                                RequestSender.generateTTSAsync(response)
-                                        .thenAccept(url -> {
-                                            // Success handler (runs when complete)
-                                            Minecraft.getInstance().execute(() -> {
-                                                if (url != null) {
-                                                    pbe.setUrl(url);
-                                                    // Play audio etc.
-                                                } else {
-                                                setProcessing(level, pos, state, false);
+                        LLMRequestSender.getAiResponseAsync(content)
+                                .thenCompose(response -> {
+                                    // Chain the TTS request after getting LLM response
+                                    if (response != null) {
+                                        pbe.setStarterPlayer(player);
+                                        return RequestSender.generateTTSAsync(response);
+                                    }
+                                    return CompletableFuture.completedFuture(null);
+                                })
+                                .thenAccept(url -> {
+                                    // Handle final result on main thread
+                                    Minecraft.getInstance().execute(() -> {
+                                        if (blockEntity instanceof PricelBlockEntity pbee) {
+                                            if (url != null) {
+                                                pbee.setUrl(url);
+                                                // Play audio etc.
                                             }
-                                            });
-                                        })
-                                        .exceptionally(e -> {
-                                            // Error handler
-                                            Minecraft.getInstance().execute(() -> {
-                                                System.out.println(e.getMessage());
-                                            });
-                                            return null;
-                                        });
-                                    //setting into pricel
-
-                                    //pbe.setUrl(url_response);
-                                    //EtchedMessages.PLAY.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) player), new ClientboundSetUrlPacket(url_response));
-
-
-                            }
-                        }
+                                            setProcessing(level, pos, state, false);
+                                        }
+                                    });
+                                })
+                                .exceptionally(e -> {
+                                    // Error handling on main thread
+                                    Minecraft.getInstance().execute(() -> {
+                                        System.out.println("Error in processing chain: " + e.getMessage());
+                                        setProcessing(level, pos, state, false);
+                                    });
+                                    return null;
+                                });
                     }
-
                 }
             }
-            return InteractionResult.CONSUME;
         }
+        return InteractionResult.CONSUME;
     }
 
     public void setProcessing(Level level, BlockPos pos, BlockState blockState, boolean f){
@@ -190,7 +183,7 @@ public class PricelBlock extends BaseEntityBlock {
 
     @Override
     public int getLightBlock(BlockState state, BlockGetter worldIn, BlockPos pos) {
-        return 15;
+        return 7;
     }
     public BlockState rotate(BlockState state, Rotation rot) {
         return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
@@ -209,6 +202,8 @@ public class PricelBlock extends BaseEntityBlock {
     public VoxelShape getVisualShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return Shapes.empty();
     }
+
+
 
 //    @Override
 //    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
@@ -281,6 +276,25 @@ public class PricelBlock extends BaseEntityBlock {
 //                PricelBlockEntity radio = (PricelBlockEntity)blockEntity;
 //            }
 //        }
+    }
+
+    private void resetBlock(Level level, BlockPos pos, BlockState originalState) {
+        // Store properties we want to keep
+        Direction facing = originalState.getValue(FACING);
+        boolean powered = originalState.getValue(POWERED);
+
+        // Remove and re-place the block
+        level.removeBlock(pos, false);
+        BlockState newState = this.defaultBlockState()
+                .setValue(FACING, facing)
+                .setValue(POWERED, powered)
+                .setValue(PROCESSING, false);
+
+        level.setBlock(pos, newState, 3);
+
+        // Recreate the block entity
+        BlockEntity newEntity = new PricelBlockEntity(pos, newState);
+        level.setBlockEntity(newEntity);
     }
 
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState blockState, BlockEntityType<T> blockEntityType) {

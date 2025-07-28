@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.svisvi.neuropricel.init.ModBlockEntities;
+import net.svisvi.neuropricel.misc.DristSoundTracker;
 import org.jetbrains.annotations.Nullable;
 
 public class PricelBlockEntity extends BlockEntity implements Clearable {
@@ -29,8 +30,19 @@ public class PricelBlockEntity extends BlockEntity implements Clearable {
     public CompletableFuture<String> url_responsed;
     public Player starterPlayer;
 
+    private boolean finishedPlaying = false;
+
     public PricelBlockEntity(BlockPos pos, BlockState state) {
         super((BlockEntityType) ModBlockEntities.PRICEL_BE.get(), pos, state);
+    }
+
+    public boolean isFinishedPlaying() {
+        return finishedPlaying;
+    }
+
+    public void setFinishedPlaying(boolean finished) {
+        this.finishedPlaying = finished;
+        setChanged();
     }
 
     public CompletableFuture<String> getUrl_responsed(){
@@ -53,7 +65,7 @@ public class PricelBlockEntity extends BlockEntity implements Clearable {
         if (level != null && level.isClientSide()) {
             if (!blockEntity.loaded) {
                 blockEntity.loaded = true;
-                SoundTracker.playRadio(blockEntity.url, state, (ClientLevel)level, pos);
+                DristSoundTracker.playRadio(blockEntity.url, state, (ClientLevel)level, pos);
             }
 
             if (blockEntity.isPlaying()) {
@@ -104,6 +116,7 @@ public class PricelBlockEntity extends BlockEntity implements Clearable {
     public void setUrl(String url) {
         if (!Objects.equals(this.url, url)) {
             this.url = url;
+            this.finishedPlaying = false;
             this.setChanged();
             if (this.level != null) {
                 this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(), 3);

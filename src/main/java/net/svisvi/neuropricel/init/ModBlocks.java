@@ -13,5 +13,5 @@ import net.svisvi.neuropricel.block.PricelBlock;
 public class ModBlocks {
     public static final DeferredRegister<Block> REGISTRY = DeferredRegister.create(ForgeRegistries.BLOCKS, NeuropricelMod.MODID);
 
-    public static final RegistryObject<Block> PRICEL = REGISTRY.register("pricel", () -> new PricelBlock(BlockBehaviour.Properties.copy(Blocks.JUKEBOX)));
+    public static final RegistryObject<Block> PRICEL = REGISTRY.register("pricel", () -> new PricelBlock(BlockBehaviour.Properties.copy(Blocks.JUKEBOX).noOcclusion()));
 }
