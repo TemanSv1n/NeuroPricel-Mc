@@ -81,7 +81,7 @@ public class PricelBlockEntity extends BlockEntity implements Clearable {
         super.load(nbt);
         this.url = nbt.contains("Url", 8) ? nbt.getString("Url") : null;
         if (this.loaded) {
-            SoundTracker.playRadio(this.url, this.getBlockState(), (ClientLevel)this.level, this.getBlockPos());
+            DristSoundTracker.playRadio(this.url, this.getBlockState(), (ClientLevel)this.level, this.getBlockPos());
         }
 
     }
@@ -104,7 +104,7 @@ public class PricelBlockEntity extends BlockEntity implements Clearable {
     public void clearContent() {
         this.url = null;
         if (this.level != null && this.level.isClientSide()) {
-            SoundTracker.playRadio(this.url, this.getBlockState(), (ClientLevel)this.level, this.getBlockPos());
+            DristSoundTracker.playRadio(this.url, this.getBlockState(), (ClientLevel)this.level, this.getBlockPos());
         }
 
     }

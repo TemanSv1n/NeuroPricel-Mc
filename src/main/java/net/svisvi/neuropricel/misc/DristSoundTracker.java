@@ -52,6 +52,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.MinecraftForge;
+import net.svisvi.neuropricel.block.entity.PricelBlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 public class DristSoundTracker {
@@ -159,9 +160,13 @@ public class DristSoundTracker {
 
     private static void playNextRecord(ClientLevel level, BlockPos pos) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
+        System.out.println("ADOLF TWINKLER");
         if (blockEntity instanceof AlbumJukeboxBlockEntity jukebox) {
             jukebox.next();
             playAlbum((AlbumJukeboxBlockEntity)blockEntity, blockEntity.getBlockState(), level, pos, true);
+        } else if (blockEntity instanceof PricelBlockEntity pbe){
+            System.out.println("PRICEL HITLER");
+            stopPricel(pbe, blockEntity.getBlockState(), level, pos, true);
         }
     }
 
@@ -249,14 +254,42 @@ public class DristSoundTracker {
                 if (TrackData.isValidURL(url)) {
                     AbstractOnlineSoundInstance record = getEtchedRecord(url, RADIO, level, pos, 8, AudioFileType.BOTH);
                     record.setLoop(false);
-                    playRecord(pos, record);
+                    //record.
+                    SoundInstance sound = null;
+                    sound = StopListeningSound.create(record, () -> Minecraft.getInstance().tell(() -> playNextRecord(level, pos)));
+                    //sound.
+                    if (sound != null) {
+                        playRecord(pos, sound);
+                        setRecordPlayingNearby(level, pos, true);
+                    }
+
+                    //playRecord(pos, record);
                 }
 
             }
         }
     }
 
-    public static void playAlbum(AlbumJukeboxBlockEntity jukebox, BlockState state, ClientLevel level, BlockPos pos, boolean force) {
+    public static void stopPricel(PricelBlockEntity jukebox, BlockState state, ClientLevel level, BlockPos pos, boolean force) {
+        System.out.println("ANTIPRICEL");
+        SoundManager soundManager = Minecraft.getInstance().getSoundManager();
+        Map<BlockPos, SoundInstance> playingRecords = ((LevelRendererAccessor) Minecraft.getInstance().levelRenderer).getPlayingRecords();
+        //if (state.hasProperty(AlbumJukeboxBlock.POWERED) && ((Boolean) state.getValue(AlbumJukeboxBlock.POWERED) || force || jukebox.recalculatePlayingIndex(false))) {
+            SoundInstance soundInstance = (SoundInstance) playingRecords.get(pos);
+            //if (soundInstance != null) {
+                if (soundInstance instanceof StopListeningSound) {
+                    ((StopListeningSound) soundInstance).stopListening();
+                }
+
+                soundManager.stop(soundInstance);
+                playingRecords.remove(pos);
+                setRecordPlayingNearby(level, pos, false);
+            //}
+       // }
+    }
+
+
+        public static void playAlbum(AlbumJukeboxBlockEntity jukebox, BlockState state, ClientLevel level, BlockPos pos, boolean force) {
         SoundManager soundManager = Minecraft.getInstance().getSoundManager();
         Map<BlockPos, SoundInstance> playingRecords = ((LevelRendererAccessor)Minecraft.getInstance().levelRenderer).getPlayingRecords();
         if (state.hasProperty(AlbumJukeboxBlock.POWERED) && ((Boolean)state.getValue(AlbumJukeboxBlock.POWERED) || force || jukebox.recalculatePlayingIndex(false))) {

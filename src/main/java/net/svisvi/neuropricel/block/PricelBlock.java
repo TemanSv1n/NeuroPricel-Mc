@@ -7,6 +7,9 @@ import gg.moonflower.etched.common.network.play.ClientboundSetUrlPacket;
 import gg.moonflower.etched.core.Etched;
 import gg.moonflower.etched.core.mixin.client.LevelRendererAccessor;
 import gg.moonflower.etched.core.registry.EtchedBlocks;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +47,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.*;
 import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -67,6 +71,16 @@ public class PricelBlock extends BaseEntityBlock {
 
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
         if (level.isClientSide()) {
+            if (!getProcessing(state)) {
+                ItemStack stack = player.getItemInHand(interactionHand);
+                if (stack.getItem() == Items.WRITABLE_BOOK || stack.getItem() == Items.WRITTEN_BOOK) {
+                    String content = fetchTextFromBook(stack);
+                    if (content != null) {
+                        BlockEntity blockEntity = level.getBlockEntity(pos);
+                        if (blockEntity instanceof PricelBlockEntity pbe) {
+                            pbe.setUrl(null);
+                            pbe.setStarterPlayer(null);
+                        }}}}
             return InteractionResult.SUCCESS;
         }
 
@@ -119,7 +133,7 @@ public class PricelBlock extends BaseEntityBlock {
     }
 
     public void setProcessing(Level level, BlockPos pos, BlockState blockState, boolean f){
-        level.setBlock(pos, (BlockState)blockState.setValue(PROCESSING, f), 2);
+        level.setBlock(pos, (BlockState)blockState.setValue(PROCESSING, f), 3);
         level.sendBlockUpdated(pos, blockState, level.getBlockState(pos), 3);
     }
 
@@ -183,7 +197,7 @@ public class PricelBlock extends BaseEntityBlock {
 
     @Override
     public int getLightBlock(BlockState state, BlockGetter worldIn, BlockPos pos) {
-        return 7;
+        return 0;
     }
     public BlockState rotate(BlockState state, Rotation rot) {
         return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
@@ -201,6 +215,15 @@ public class PricelBlock extends BaseEntityBlock {
     @Override
     public VoxelShape getVisualShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return Shapes.empty();
+    }
+
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        List<ItemStack> dropsOriginal = super.getDrops(state, builder);
+        if (!dropsOriginal.isEmpty())
+            return dropsOriginal;
+        return Collections.singletonList(new ItemStack(this, 1));
     }
 
 
