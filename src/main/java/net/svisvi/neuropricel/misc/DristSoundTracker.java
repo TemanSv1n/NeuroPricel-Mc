@@ -58,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
 public class DristSoundTracker {
     private static final Int2ObjectArrayMap<SoundInstance> ENTITY_PLAYING_SOUNDS = new Int2ObjectArrayMap();
     private static final Set<String> FAILED_URLS = new HashSet();
-    private static final Component RADIO = Component.translatable("sound_source.etched.radio");
+    private static final Component RADIO = Component.translatable("sound_source.neuropricel.pricel");
 
     private static synchronized void setRecordPlayingNearby(Level level, BlockPos pos, boolean playing) {
         BlockState state = level.getBlockState(pos);

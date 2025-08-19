@@ -199,6 +199,12 @@ public class PricelBlock extends BaseEntityBlock {
     public int getLightBlock(BlockState state, BlockGetter worldIn, BlockPos pos) {
         return 0;
     }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return box(0, 0, 0, 16, 8, 16);
+    }
+
     public BlockState rotate(BlockState state, Rotation rot) {
         return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
     }
@@ -280,11 +286,11 @@ public class PricelBlock extends BaseEntityBlock {
                     Minecraft minecraft = Minecraft.getInstance();
                     Map<BlockPos, SoundInstance> sounds = ((LevelRendererAccessor)minecraft.levelRenderer).getPlayingRecords();
                     if (sounds.containsKey(pos) && minecraft.getSoundManager().isActive((SoundInstance)sounds.get(pos))) {
-                        level.addParticle(ParticleTypes.NOTE, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.7, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
+                        level.addParticle(ParticleTypes.NOTE, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
                     }
 
                 } else if (state.getValue(PROCESSING)){
-                    level.addParticle(ParticleTypes.ANGRY_VILLAGER, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.7, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
+                    level.addParticle(ParticleTypes.GLOW, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
 //                    BlockEntity blockEntity = level.getBlockEntity(pos);
 //                    if (blockEntity instanceof PricelBlockEntity pbe){
 //                    if (.isDone()) {

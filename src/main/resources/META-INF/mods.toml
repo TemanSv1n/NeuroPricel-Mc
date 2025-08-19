@@ -17,6 +17,12 @@ authors="TemanSv1n"
     ordering="NONE"
     side="BOTH"
 
+[[dependencies.neuropricel]]
+    modId="etched"
+    mandatory=true
+    versionRange="[3.0.4,)"
+    ordering="NONE"
+    side="BOTH"
 
 
 
