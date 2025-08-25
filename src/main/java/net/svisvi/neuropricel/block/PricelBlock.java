@@ -22,6 +22,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -52,6 +53,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.PacketDistributor;
 import net.svisvi.neuropricel.block.entity.PricelBlockEntity;
 import net.svisvi.neuropricel.init.ModBlockEntities;
@@ -71,6 +74,7 @@ public class PricelBlock extends BaseEntityBlock {
 
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
         if (level.isClientSide()) {
+            // Client-side logic
             if (!getProcessing(state)) {
                 ItemStack stack = player.getItemInHand(interactionHand);
                 if (stack.getItem() == Items.WRITABLE_BOOK || stack.getItem() == Items.WRITTEN_BOOK) {
@@ -80,10 +84,14 @@ public class PricelBlock extends BaseEntityBlock {
                         if (blockEntity instanceof PricelBlockEntity pbe) {
                             pbe.setUrl(null);
                             pbe.setStarterPlayer(null);
-                        }}}}
+                        }
+                    }
+                }
+            }
             return InteractionResult.SUCCESS;
         }
 
+        // Server-side logic
         if (!getProcessing(state)) {
             ItemStack stack = player.getItemInHand(interactionHand);
             if (stack.getItem() == Items.WRITABLE_BOOK || stack.getItem() == Items.WRITTEN_BOOK) {
@@ -92,37 +100,46 @@ public class PricelBlock extends BaseEntityBlock {
                     BlockEntity blockEntity = level.getBlockEntity(pos);
                     if (blockEntity instanceof PricelBlockEntity pbe) {
                         pbe.setUrl(null);
-                        pbe.setStarterPlayer(null);
+                        pbe.setStarterPlayer(player); // Set the player on server side
 
                         setProcessing(level, pos, state, true);
 
                         LLMRequestSender.getAiResponseAsync(content)
                                 .thenCompose(response -> {
-                                    // Chain the TTS request after getting LLM response
                                     if (response != null) {
-                                        pbe.setStarterPlayer(player);
                                         return RequestSender.generateTTSAsync(response);
                                     }
                                     return CompletableFuture.completedFuture(null);
                                 })
                                 .thenAccept(url -> {
-                                    // Handle final result on main thread
-                                    Minecraft.getInstance().execute(() -> {
-                                        if (blockEntity instanceof PricelBlockEntity pbee) {
-                                            if (url != null) {
-                                                pbee.setUrl(url);
-                                                // Play audio etc.
+                                    // Handle final result on server thread
+                                    if (level instanceof ServerLevel serverLevel) {
+                                        serverLevel.getServer().execute(() -> {
+                                            BlockEntity updatedEntity = serverLevel.getBlockEntity(pos);
+                                            if (updatedEntity instanceof PricelBlockEntity pbee) {
+                                                if (url != null) {
+                                                    pbee.setUrl(url);
+                                                    // Send packet to client to play audio
+                                                    if (player instanceof ServerPlayer serverPlayer) {
+                                                        EtchedMessages.PLAY.send(
+                                                                PacketDistributor.PLAYER.with(() -> serverPlayer),
+                                                                new ClientboundSetUrlPacket(url)
+                                                        );
+                                                    }
+                                                }
+                                                setProcessing(serverLevel, pos, state, false);
                                             }
-                                            setProcessing(level, pos, state, false);
-                                        }
-                                    });
+                                        });
+                                    }
                                 })
                                 .exceptionally(e -> {
-                                    // Error handling on main thread
-                                    Minecraft.getInstance().execute(() -> {
-                                        System.out.println("Error in processing chain: " + e.getMessage());
-                                        setProcessing(level, pos, state, false);
-                                    });
+                                    // Error handling on server thread
+                                    if (level instanceof ServerLevel serverLevel) {
+                                        serverLevel.getServer().execute(() -> {
+                                            System.out.println("Error in processing chain: " + e.getMessage());
+                                            setProcessing(serverLevel, pos, state, false);
+                                        });
+                                    }
                                     return null;
                                 });
                     }
@@ -277,35 +294,41 @@ public class PricelBlock extends BaseEntityBlock {
             if (blockEntity instanceof PricelBlockEntity pbe) {
                 PricelBlockEntity radio = (PricelBlockEntity)blockEntity;
                 if (radio.getUrl() != null) {
+                    // This is client-side only, so we can use Minecraft.getInstance()
                     if (getProcessing(state)){
                         setProcessing(level, pos, state, false);
                         if (pbe.getStarterPlayer() != null) {
-                            EtchedMessages.PLAY.send(PacketDistributor.PLAYER.with(() -> (ServerPlayer) pbe.getStarterPlayer()), new ClientboundSetUrlPacket(radio.getUrl()));
+                            // This should only be called on client, but just to be safe:
+                            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+                                if (level.isClientSide()) {
+                                    Minecraft minecraft = Minecraft.getInstance();
+                                    if (minecraft.player != null && minecraft.player.getUUID().equals(pbe.getStarterPlayer().getUUID())) {
+                                        EtchedMessages.PLAY.sendToServer(new ClientboundSetUrlPacket(radio.getUrl()));
+                                    }
+                                }
+                            });
                         }
                     }
-                    Minecraft minecraft = Minecraft.getInstance();
-                    Map<BlockPos, SoundInstance> sounds = ((LevelRendererAccessor)minecraft.levelRenderer).getPlayingRecords();
-                    if (sounds.containsKey(pos) && minecraft.getSoundManager().isActive((SoundInstance)sounds.get(pos))) {
-                        level.addParticle(ParticleTypes.NOTE, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
+
+                    // Client-side particle effects
+                    if (level.isClientSide()) {
+                        Minecraft minecraft = Minecraft.getInstance();
+                        Map<BlockPos, SoundInstance> sounds = ((LevelRendererAccessor)minecraft.levelRenderer).getPlayingRecords();
+                        if (sounds.containsKey(pos) && minecraft.getSoundManager().isActive((SoundInstance)sounds.get(pos))) {
+                            level.addParticle(ParticleTypes.NOTE, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
+                        }
                     }
 
                 } else if (state.getValue(PROCESSING)){
-                    level.addParticle(ParticleTypes.GLOW, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
-//                    BlockEntity blockEntity = level.getBlockEntity(pos);
-//                    if (blockEntity instanceof PricelBlockEntity pbe){
-//                    if (.isDone()) {
-
+                    // Processing particles (client-side only)
+                    if (level.isClientSide()) {
+                        level.addParticle(ParticleTypes.GLOW, (double)pos.getX() + (double)0.5F, (double)pos.getY() + 0.3, (double)pos.getZ() + (double)0.5F, (double)random.nextInt(25) / (double)24.0F, (double)0.0F, (double)0.0F);
+                    }
                 }
             }
         }
-
-//        if (level.getBlockState(pos.above()).isAir()){
-//            BlockEntity blockEntity = level.getBlockEntity(pos);
-//            if (blockEntity instanceof PricelBlockEntity) {
-//                PricelBlockEntity radio = (PricelBlockEntity)blockEntity;
-//            }
-//        }
     }
+
 
     private void resetBlock(Level level, BlockPos pos, BlockState originalState) {
         // Store properties we want to keep
